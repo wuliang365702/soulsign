@@ -1,6 +1,22 @@
 # soulsign
 
-Browser extension build for Soulsign, currently maintained at version `2.6.1`.
+`soulsign` is a continued-maintenance build of the original `soulsign-chrome` browser extension.
+
+Original project:
+
+- `keg1255/soulsign-chrome`: https://github.com/keg1255/soulsign-chrome
+
+## Project Status
+
+This repository is maintained after the original project stopped active updates.
+
+The original project was built around Manifest V2. Since current Chromium-based browsers no longer support Manifest V2, this repository continues the project by adapting it to Manifest V3 so it can keep running on newer browser versions.
+
+In short:
+
+- original upstream: Manifest V2
+- this repository: Manifest V3
+- current maintained version: `2.6.1`
 
 ## Overview
 
