@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>魂签</title>
+  <style>
+    :root {
+      --text: #222;
+      --muted: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 290px;
+      padding: 10px 12px 4px;
+      font: 13px/1.45 "Microsoft YaHei", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: flex-end;
+      gap: 14px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .tabs button {
+      border: 0;
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .tabs .active {
+      color: #d11f3a;
+      font-weight: 700;
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .form-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 100px;
+      gap: 5px 10px;
+      align-items: center;
+    }
+
+    .form-label {
+      color: #111827;
+      min-width: 0;
+    }
+
+    .form-label.span-2,
+    .form-field.span-2 {
+      grid-column: 1 / span 2;
+    }
+
+    .form-field {
+      width: 100px;
+      height: 24px;
+      border: 1px solid #9ca3af;
+      padding: 2px 6px;
+      font: inherit;
+      background: #fff;
+    }
+
+    .form-field.long {
+      width: 100%;
+      grid-column: 1 / span 2;
+      height: 28px;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      min-width: 66px;
+      height: 28px;
+      border: 1px solid #8b9099;
+      color: #111827;
+      background: linear-gradient(180deg, #ffffff 0%, #eceff3 100%);
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      border-color: #6f7784;
+    }
+
+    .status {
+      min-height: 18px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    .helper-label {
+      display: block;
+      margin-bottom: 6px;
+      color: #111827;
+    }
+
+    .helper-url {
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .helper-textarea {
+      width: 100%;
+      min-height: 220px;
+      border: 1px solid #9ca3af;
+      padding: 8px 10px;
+      resize: vertical;
+      font: 12px/1.45 Consolas, "Courier New", monospace;
+      color: #111827;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <button id="restart-extension" type="button">重启</button>
+    <button id="open-settings" class="active" type="button">设置</button>
+    <button id="open-helper" type="button">辅助</button>
+    <button id="open-options" type="button">任务管理</button>
+  </div>
+
+  <section id="settings-panel" class="panel active">
+    <div class="form-grid">
+      <div class="form-label">浏览器推送通知</div>
+      <label class="form-check">
+        <input id="local_notify" type="checkbox">
+        <span>开启</span>
+      </label>
+
+      <div class="form-label">掉线通知频率（秒）</div>
+      <input id="notify_freq" class="form-field" type="number">
+
+      <div class="form-label">失败重试频率（秒）</div>
+      <input id="retry_freq" class="form-field" type="number">
+
+      <div class="form-label">任务循环频率（秒）</div>
+      <input id="loop_freq" class="form-field" type="number">
+
+      <div class="form-label">签到开始时间（时）</div>
+      <input id="begin_at" class="form-field" type="number" min="0" max="24" step="1">
+
+      <div class="form-label">自动更新脚本</div>
+      <label class="form-check">
+        <input id="upgrade" type="checkbox">
+        <span>开启</span>
+      </label>
+
+      <div class="form-label">自动更新频率（秒）</div>
+      <input id="upgrade_freq" class="form-field" type="number">
+
+      <div class="form-label">任务超时限制（秒）</div>
+      <input id="timeout" class="form-field" type="number">
+
+      <div class="form-label span-2">通知推送URL（支持 $MSG / $URL）</div>
+      <input id="notify_url" class="form-field long span-2" type="text" placeholder="如: https://xxx.com/text=$MSG&url=$URL">
+    </div>
+
+    <div class="actions">
+      <button id="save" class="btn primary" type="button">保存</button>
+    </div>
+  </section>
+
+  <section id="helper-panel" class="panel">
+    <label class="helper-label" for="cookie-textarea">cookie</label>
+    <div id="helper-url" class="helper-url"></div>
+    <textarea id="cookie-textarea" class="helper-textarea" spellcheck="false"></textarea>
+    <div class="actions">
+      <button id="clear-cookie" class="btn" type="button">清空</button>
+      <button id="copy-cookie" class="btn" type="button">复制</button>
+      <button id="save-cookie" class="btn primary" type="button">保存</button>
+    </div>
+  </section>
+
+  <div id="status" class="status"></div>
+
+  <script src="js/popup.js"></script>
+</body>
+</html>

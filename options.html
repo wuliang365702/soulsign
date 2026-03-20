@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>魂签</title>
+  <link rel="stylesheet" href="static/material-icons.css">
+  <style>
+    /* 全局配色与基础重置 */
+    :root {
+      --bg: #efefef;
+      --card: #ffffff;
+      --line: #d7d7d7;
+      --text: #3f3f46;
+      --muted: #8a8f98;
+      --brand: #2994ea;
+      --brand-dark: #1f7cc8;
+      --danger: #1d1d1d;
+      --success: #47ae47;
+      --shadow: 0 10px 28px rgba(20, 32, 61, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font: 14px/1.45 "Microsoft YaHei", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #f0f1f4 0%, #ececec 100%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    /* 顶部导航与页面基础布局 */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 58px;
+      padding: 0 18px;
+      color: #fff;
+      background: linear-gradient(90deg, #2994ea 0%, #2f8fe1 55%, #3488d5 100%);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .brand small {
+      margin-left: 8px;
+      font-size: 14px;
+      opacity: 0.85;
+      font-weight: 600;
+    }
+
+    .nav {
+      display: flex;
+      gap: 28px;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    .nav a,
+    .nav button {
+      border: 0;
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 18px 18px 40px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      width: 100%;
+      margin: 0 0 18px;
+    }
+
+    .btn {
+      border: 0;
+      min-width: 92px;
+      padding: 10px 16px;
+      border-radius: 2px;
+      color: #fff;
+      background: var(--brand);
+      box-shadow: 0 4px 10px rgba(41, 148, 234, 0.28);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      background: var(--brand-dark);
+      box-shadow: 0 6px 14px rgba(41, 148, 234, 0.32);
+    }
+
+    .btn.light {
+      background: #7f8ea3;
+      box-shadow: 0 4px 10px rgba(127, 142, 163, 0.24);
+    }
+
+    .btn.ghost {
+      background: #fff;
+      color: var(--brand-dark);
+      box-shadow: inset 0 0 0 1px rgba(41, 148, 234, 0.35);
+    }
+
+    .btn.danger {
+      background: #111827;
+      box-shadow: 0 4px 10px rgba(17, 24, 39, 0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* 主任务表格 */
+    /* 主任务表格与列表列布局 */
+    .board {
+      width: 100%;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+
+    th,
+    td {
+      padding: 16px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #70757f;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    td {
+      background: #fff;
+    }
+
+    .col-author {
+      width: 118px;
+    }
+
+    .col-name {
+      width: 140px;
+    }
+
+    .col-version {
+      width: 74px;
+    }
+
+    .col-domain {
+      width: 70px;
+    }
+
+    .col-online {
+      width: 88px;
+    }
+
+    .col-run-at {
+      width: 130px;
+    }
+
+    .col-result {
+      width: 190px;
+      min-width: 190px;
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+
+    .col-rate {
+      width: 104px;
+    }
+
+    .col-enabled {
+      width: 88px;
+    }
+
+    .col-actions {
+      width: 108px;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .col-author,
+    .col-version,
+    .col-domain,
+    .col-online,
+    .col-run-at,
+    .col-rate,
+    .col-enabled,
+    .col-actions {
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .name-cell {
+      text-align: left;
+    }
+
+    .name-cell strong {
+      font-weight: 600;
+      color: #202124;
+    }
+
+    .name-link {
+      color: #202124;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .name-link:hover {
+      color: var(--brand-dark);
+    }
+
+    .domain-list {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .domain-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0;
+      border-radius: 6px;
+    }
+
+    .site-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* 详情 / 日志弹窗表格 */
+    .detail-info {
+      margin-bottom: 14px;
+    }
+
+    #detail-overlay table {
+      table-layout: fixed;
+      min-width: 0;
+    }
+
+    #detail-overlay th,
+    #detail-overlay td {
+      width: auto !important;
+      min-width: 0 !important;
+      text-align: left !important;
+      vertical-align: top;
+    }
+
+    #detail-overlay .detail-col-icon {
+      width: 72px !important;
+      text-align: center !important;
+    }
+
+    #detail-overlay .detail-col-domain {
+      width: 260px !important;
+    }
+
+    #detail-overlay .detail-col-message {
+      width: auto !important;
+    }
+
+    #detail-overlay table.detail-table.detail-grid-4 .detail-col-field {
+      width: 25% !important;
+      text-align: left !important;
+    }
+
+    #detail-overlay table.detail-table.detail-grid-4 .detail-col-value {
+      width: 25% !important;
+      text-align: left !important;
+    }
+
+    #detail-overlay table.detail-table.detail-grid-4 .detail-col-status {
+      width: 25% !important;
+      text-align: left !important;
+    }
+
+    #detail-overlay table.detail-table.detail-grid-4 .detail-col-extra {
+      width: 25% !important;
+      text-align: left !important;
+    }
+
+    .detail-info-label {
+      color: #8a9099;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .detail-info-value {
+      color: #3c4043;
+      font-size: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(60, 64, 67, 0.12);
+    }
+
+    .detail-domain-cell {
+      text-align: left;
+    }
+
+    .detail-domain-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    .detail-domain-wrap .domain-text {
+      color: #5f6368;
+      word-break: break-all;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .detail-domain-wrap a.domain-text:hover {
+      color: #0366d6;
+      text-decoration: underline;
+    }
+
+    .detail-message {
+      color: #34a853;
+      text-align: left;
+    }
+
+    .detail-message-toggle {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .detail-message-toggle:hover {
+      text-decoration: underline;
+    }
+
+    .detail-json {
+      margin: 0;
+      padding: 12px 14px;
+      color: #374151;
+      background: #f8fafc;
+      border-top: 1px dashed rgba(148, 163, 184, 0.6);
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 12px/1.6 Consolas, "Courier New", monospace;
+    }
+
+    .detail-expand-cell {
+      padding: 0 0 12px 0 !important;
+    }
+
+    .detail-prewrap {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* 执行状态、开关和操作区 */
+    .status-online {
+      color: #16a34a;
+    }
+
+    .status-offline {
+      color: #f43f5e;
+    }
+
+    .result-ok {
+      color: #3ba53b;
+    }
+
+    .result-fail {
+      color: #ef4444;
+      word-break: break-word;
+    }
+
+    .rate {
+      display: inline-flex;
+      min-width: 72px;
+      justify-content: center;
+      padding: 1px 10px;
+      color: #fff;
+      background: #42a847;
+      font-weight: 700;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-flex;
+      width: 36px;
+      height: 18px;
+      border-radius: 999px;
+      background: #bed4e7;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .switch span {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+      transition: transform 0.2s ease;
+    }
+
+    .switch input:checked + span {
+      transform: translateX(18px);
+      background: #2994ea;
+    }
+
+    .switch:has(input:checked) {
+      background: #8ac4f0;
+    }
+
+    .icon-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #151515;
+      font-size: 18px;
+    }
+
+    .icon-btn {
+      border: 0;
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      cursor: pointer;
+      line-height: 1;
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn:hover {
+      color: var(--brand-dark);
+    }
+
+    .icon-btn .material-icons {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .summary {
+      min-height: 24px;
+    }
+
+    .result-link {
+      border: 0;
+      padding: 0;
+      width: 100%;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      background: transparent;
+      cursor: pointer;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .result-link:hover {
+      text-decoration: underline;
+    }
+
+    .result-link.result-ok {
+      color: #3ba53b;
+    }
+
+    .result-link.result-fail {
+      color: #ef4444;
+    }
+
+    .empty {
+      padding: 30px 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* 通用弹窗容器 */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(17, 24, 39, 0.38);
+      z-index: 20;
+    }
+
+    .overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      width: min(1040px, 100%);
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .modal.small {
+      width: min(820px, 100%);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .modal-body {
+      padding: 18px 20px 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 0 20px 20px;
+      flex-wrap: wrap;
+    }
+
+    /* 参数弹窗 / 录制弹窗的表单布局 */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 0;
+    }
+
+    #params-overlay .modal {
+      width: min(520px, 100%);
+    }
+
+    .form-grid .form-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #4b5563;
+      font-size: 13px;
+      width: 100%;
+    }
+
+    .form-grid.form-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    #record-overlay .form-grid.form-grid-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .form-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .form-field {
+      width: 100%;
+    }
+
+    /* 录制弹窗的局部尺寸调整 */
+    #record-overlay .modal {
+      width: min(420px, 100%);
+    }
+
+    #record-overlay .modal-body {
+      padding-top: 14px;
+      padding-bottom: 16px;
+    }
+
+    #record-overlay .modal-actions {
+      padding-top: 0;
+    }
+
+    #record-overlay input[type="text"] {
+      min-height: 42px;
+      border-radius: 10px;
+    }
+
+    /* 跨域管理面板 */
+    .cross-note {
+      margin-bottom: 14px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .cross-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px 92px;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .cross-toolbar label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #4b5563;
+      font-size: 13px;
+    }
+
+    .cross-board {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+    }
+
+    .cross-board table {
+      table-layout: fixed;
+      min-width: 0;
+    }
+
+    .cross-board th:nth-child(2),
+    .cross-board td:nth-child(2) {
+      width: 120px;
+    }
+
+    .cross-board th:nth-child(3),
+    .cross-board td:nth-child(3) {
+      width: 90px;
+    }
+
+    .cross-board th:nth-child(4),
+    .cross-board td:nth-child(4) {
+      width: 90px;
+    }
+
+    .cross-empty {
+      padding: 48px 20px;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    .cross-domain {
+      word-break: break-all;
+    }
+
+
+    /* 通用表单控件外观 */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 40px;
+      padding: 10px 12px;
+      border: 1px solid #d7dde5;
+      border-radius: 8px;
+      color: #111827;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 620px;
+      resize: vertical;
+      font: 13px/1.6 Consolas, "Courier New", monospace;
+    }
+
+    /* 编辑器弹窗与代码高亮 */
+    #editor-overlay .modal {
+      width: min(1180px, 100%);
+      height: calc(100vh - 32px);
+      max-height: calc(100vh - 32px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #editor-overlay .modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+
+    #editor-overlay .modal-actions {
+      flex-shrink: 0;
+      padding-top: 0;
+    }
+
+    .editor-shell {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      border: 1px solid #d7dde5;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #202124;
+    }
+
+    .editor-highlight,
+    .editor-shell textarea {
+      margin: 0;
+      padding: 14px 16px;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      font: 13px/1.6 Consolas, "Courier New", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      tab-size: 2;
+      overflow: auto;
+    }
+
+    .editor-highlight {
+      position: absolute;
+      inset: 0;
+      color: #d4d4d4;
+      background: #202124;
+      pointer-events: none;
+    }
+
+    .editor-shell textarea {
+      position: absolute;
+      inset: 0;
+      border: 0;
+      resize: none;
+      color: transparent;
+      caret-color: #f8fafc;
+      background: transparent;
+    }
+
+    .editor-shell textarea::selection {
+      background: rgba(96, 165, 250, 0.32);
+    }
+
+    .tok-comment {
+      color: #6a9955;
+    }
+
+    .tok-string {
+      color: #ce9178;
+    }
+
+    .tok-keyword {
+      color: #c586c0;
+    }
+
+    .tok-number {
+      color: #b5cea8;
+    }
+
+    .tok-function {
+      color: #dcdcaa;
+    }
+
+    /* 提示、Toast 与隐藏工具类 */
+    .hint {
+      margin-bottom: 14px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      display: none;
+      min-width: 220px;
+      max-width: 420px;
+      padding: 12px 14px;
+      color: #fff;
+      background: rgba(17, 24, 39, 0.92);
+      box-shadow: var(--shadow);
+      z-index: 40;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 响应式适配 */
+    @media (max-width: 1100px) {
+      .page {
+        padding-inline: 14px;
+      }
+
+      .board {
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      table {
+        min-width: 980px;
+      }
+
+      .form-grid.form-grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+      }
+
+      .nav {
+        gap: 16px;
+        font-size: 14px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar {
+        justify-content: center;
+      }
+
+      .form-grid.form-grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-body,
+      .modal-head,
+      .modal-actions {
+        padding-inline: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">魂签 <small id="app-version">2.6.1</small></div>
+    <nav class="nav">
+      <button id="nav-config" type="button">跨域管理</button>
+      <a href="#scripts">脚本管理</a>
+      <a href="https://soulsign.inu1255.cn/" target="_blank" rel="noreferrer">脚本推荐</a>
+      <a href="https://github.com/inu1255/soulsign-chrome" target="_blank" rel="noreferrer">源码</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="toolbar">
+      <button class="btn" id="import-script">导入脚本</button>
+      <button class="btn" id="export-script">导出脚本</button>
+      <button class="btn" id="clear-count">清空计数</button>
+      <button class="btn" id="add-script">添加脚本</button>
+      <button class="btn" id="record-script">录制脚本</button>
+      <input id="file-input" class="hidden" type="file" accept=".js,.json,.txt,.soulsign">
+    </section>
+
+    <section class="board" id="scripts">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-author">作者</th>
+            <th class="col-name">脚本名</th>
+            <th class="col-version">版本</th>
+            <th class="col-domain">站点</th>
+            <th class="col-online">是否在线</th>
+            <th class="col-run-at">最近执行时间</th>
+            <th class="col-result">执行结果</th>
+            <th class="col-rate">成功次数</th>
+            <th class="col-enabled">已启用</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody id="task-body"></tbody>
+      </table>
+      <div class="empty hidden" id="empty-state">暂无脚本，点击右上角“添加脚本”开始。</div>
+    </section>
+  </main>
+
+      <section class="overlay" id="editor-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title" id="editor-title">&#32534;&#36753;&#33050;&#26412;</div>
+        <button class="icon-btn" id="close-editor" type="button">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="editor-shell">
+          <pre id="script-highlight" class="editor-highlight"></pre>
+          <textarea id="script" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn light" id="debug-params" type="button">&#35843;&#35797;&#21442;&#25968;</button>
+        <button class="btn light" id="debug-check" type="button">&#35843;&#35797;CHECK</button>
+        <button class="btn light" id="debug-run" type="button">&#35843;&#35797;RUN</button>
+        <button class="btn ghost" id="cancel-editor" type="button">&#21462;&#28040;</button>
+        <button class="btn" id="save-script" type="button">&#20445;&#23384;&#33050;&#26412;</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay" id="config-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">&#36328;&#22495;&#31649;&#29702;</div>
+        <button class="icon-btn" id="close-config" type="button">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cross-note">&#21152;&#20837;&#30333;&#21517;&#21333;&#30340;&#31449;&#28857;&#21487;&#20197;&#36328;&#22495;&#35775;&#38382;&#20219;&#24847;&#20854;&#23427;&#32593;&#22336;</div>
+        <div class="cross-toolbar">
+          <label>&#36328;&#22495;&#22836;
+            <input id="cross_header" type="text" placeholder="Access-Control-Allow-Headers">
+          </label>
+          <label>&#31449;&#28857;(&#21327;&#35758;://&#22495;&#21517;[:&#31471;&#21475;])
+            <input id="cross_domain" type="text" placeholder="https://example.com">
+          </label>
+          <button class="btn" id="add-cross" type="button">&#28155;&#21152;</button>
+        </div>
+        <div class="cross-board">
+          <table>
+            <thead>
+              <tr>
+                <th>&#31449;&#28857;(&#21327;&#35758;://&#22495;&#21517;[:&#31471;&#21475;])</th>
+                <th>cookie&#36328;&#22495;</th>
+                <th>&#21551;&#29992;</th>
+                <th>&#25805;&#20316;</th>
+              </tr>
+            </thead>
+            <tbody id="cross-body"></tbody>
+          </table>
+          <div class="cross-empty hidden" id="cross-empty">&#26242;&#26080;&#25968;&#25454;</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancel-config" type="button">&#20851;&#38381;</button>
+        <button class="btn light" id="save-config" type="button">&#20445;&#23384;&#37197;&#32622;</button>
+      </div>
+    </div>
+  </section>
+
+<section class="overlay" id="detail-overlay">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title" id="detail-title">&#32454;&#33410;/&#26085;&#24535;</div>
+        <button class="icon-btn" id="close-detail" type="button">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="hint" id="detail-summary"></div>
+        <table class="detail-table">
+          <thead>
+            <tr id="detail-head-row"></tr>
+          </thead>
+          <tbody id="detail-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="close-detail-action" type="button">&#20851;&#38381;</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay" id="params-overlay">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title" id="params-title">&#37197;&#32622;&#21442;&#25968;</div>
+        <button class="icon-btn" id="close-params" type="button">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid" id="params-fields"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancel-params" type="button">&#21462;&#28040;</button>
+        <button class="btn" id="save-params" type="button">&#30830;&#23450;</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay" id="record-overlay">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title" id="record-title">&#33050;&#26412;&#24405;&#21046;</div>
+        <button class="icon-btn" id="close-record" type="button">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid form-grid-2">
+          <label class="form-label">&#31614;&#21040;&#32593;&#22336;
+            <input id="record-url" type="text" placeholder="https://www.example.com/checkin">
+          </label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancel-record" type="button">&#21462;&#28040;</button>
+        <button class="btn" id="confirm-record" type="button">&#30830;&#23450;</button>
+      </div>
+    </div>
+  </section>
+
+<div class="toast" id="toast"></div>
+
+  <script src="js/options.js"></script>
+</body>
+</html>
