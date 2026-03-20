@@ -12,6 +12,8 @@ This repository is maintained after the original project stopped active updates.
 
 The original project was built around Manifest V2. Since current Chromium-based browsers no longer support Manifest V2, this repository continues the project by adapting it to Manifest V3 so it can keep running on newer browser versions.
 
+Parts of this migration and follow-up maintenance were completed with AI-assisted code updates.
+
 In short:
 
 - original upstream: Manifest V2
