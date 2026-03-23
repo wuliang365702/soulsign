@@ -746,6 +746,12 @@ exports.check = async function(param) {
     return task;
   }
 
+  // 在线状态复查优先使用脚本自己的 @expire，未提供时再回退到全局兜底值。
+  function getOnlineRecheckMs(task) {
+    const expire = Number(task && task.expire);
+    return expire > 0 ? expire : ONLINE_STATUS_RECHECK_MS;
+  }
+
   async function checkTaskOnline(config, task, now) {
     task._timeout = getTaskTimeout(config);
     try {
@@ -758,7 +764,6 @@ exports.check = async function(param) {
       return { online: !!online, error: null };
     } catch (error) {
       markTaskOnlineState(task, false, now);
-      task.result = normalizeResult(task, String(error));
       return { online: false, error };
     }
   }
@@ -920,7 +925,8 @@ exports.check = async function(param) {
           tasks[key] = task;
           continue;
         }
-        const shouldCheck = !task.online_at || Math.abs(task.online_at) + ONLINE_STATUS_RECHECK_MS < now;
+        const shouldCheck =
+          !task.online_at || Math.abs(task.online_at) + getOnlineRecheckMs(task) < now;
         if (shouldCheck) {
           await setConfig({ last_refresh_stage: `check:${key}` });
           const checked = await checkTaskOnline(config, task, now);

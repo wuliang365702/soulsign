@@ -14,6 +14,7 @@
     recordEnd: "record/end",
   };
   const DEBUG_TIMEOUT_MS = 20000;
+  const ONLINE_STATUS_RECHECK_MS = 900 * 1000;
   const NO_DETAIL_ROWS_TEXT = "没有可展示的执行明细";
   const defaultCode = `// ==UserScript==
 // @name              SCRIPT_NAME
@@ -212,6 +213,11 @@ exports.check = async function(param) {
   function getDayStartTimestamp(now, beginAtHours) {
     const offsetMs = normalizeBeginAtHours(beginAtHours) * 3600000;
     return new Date(now - offsetMs).setHours(0, 0, 0, 0) + offsetMs;
+  }
+
+  function getOnlineRecheckMs(task) {
+    const expire = Number(task && task.expire);
+    return expire > 0 ? expire : ONLINE_STATUS_RECHECK_MS;
   }
 
   // 任务列表渲染相关的辅助函数。
@@ -742,6 +748,8 @@ exports.check = async function(param) {
     const failureAt = Number(task.failure_at || 0);
     const onlineAt = Number(task.online_at || 0);
     const freq = Number(task.freq || 0);
+    const onlineRecheckMs = getOnlineRecheckMs(task);
+    const onlineRecheckSource = Number(task.expire) > 0 ? "@expire" : "全局兜底";
     const done = !freq || freq >= 86400000 ? successAt >= today : successAt + freq >= now;
     const due = !done;
     const retryable = failureAt + Number(config.retry_freq || 0) * 1000 <= now;
@@ -755,6 +763,7 @@ exports.check = async function(param) {
       detailFieldRow("success_at", formatTimeSeconds(successAt), successAt >= today ? "今天已成功" : "今天未成功", `${successAt}`),
       detailFieldRow("failure_at", formatTimeSeconds(failureAt), failureAt > successAt ? "最近一次失败" : "无新失败", `${failureAt}`),
       detailFieldRow("online_at", formatTimeSeconds(onlineAt), onlineAt < 0 ? "离线" : onlineAt > 0 ? "在线" : "未检查", `${onlineAt}`),
+      detailFieldRow("在线复查间隔", `${Math.round(onlineRecheckMs / 1000)} s`, onlineRecheckSource, ""),
       detailFieldRow("freq", freq ? `${freq} ms` : "按天判断", done ? "done=true" : "done=false", due ? "due=true" : "due=false"),
       detailFieldRow("retry_freq", `${Number(config.retry_freq || 0)} s`, retryable ? "retryable=true" : "retryable=false", ""),
     ];

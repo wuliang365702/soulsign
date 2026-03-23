@@ -1,5 +1,16 @@
 # 手工回归检查清单
 
+## 参考文档
+
+下面这几份文档适合平时查阅：
+
+1. [`script-header-params-reference.md`](./script-header-params-reference.md)
+   脚本头参数对照表，说明 `@loginURL`、`@expire`、`@domain`、`@param` 等参数在当前版里分别影响什么。
+2. [`scheduler-flow-reference.md`](./scheduler-flow-reference.md)
+   调度关系说明，讲清楚 `check / run / @expire / retry_freq / loop_freq` 的配合方式。
+3. [`common-script-templates.md`](./common-script-templates.md)
+   常见签到脚本模板，适合新增站点时直接选一个最接近的模板开始改。
+
 ## 核心界面
 
 1. 在 `chrome://extensions` 里重新加载扩展。
