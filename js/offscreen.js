@@ -22,6 +22,7 @@
   };
   const DEBUG_TIMEOUT_MS = 20000;
   const ONLINE_STATUS_RECHECK_MS = 900 * 1000;
+  const MIN_SCHEDULER_DELAY_SECONDS = 60;
   const RECORDED_COMPLETION_TEXT = "录制完成";
   const TASK_NOTIFICATION_TEXT = {
     failureAction: "点此查看或重试",
@@ -81,6 +82,35 @@
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function shouldIgnoreCloseTargetError(error) {
+    const message = String(error && error.message ? error.message : error || "");
+    return /No tab with id/i.test(message) || /No window with id/i.test(message);
+  }
+
+  function shouldRetryCloseTargetError(error) {
+    const message = String(error && error.message ? error.message : error || "");
+    return /Tabs cannot be edited right now/i.test(message);
+  }
+
+  async function closeTarget(action, id, label) {
+    if (id == null) return false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await bridge(action, id);
+        return true;
+      } catch (error) {
+        if (shouldIgnoreCloseTargetError(error)) return false;
+        if (shouldRetryCloseTargetError(error) && attempt < 2) {
+          await sleep(200 * (attempt + 1));
+          continue;
+        }
+        console.warn(`soulsign close ${label} failed`, error);
+        return false;
+      }
+    }
+    return false;
   }
 
   function normalizeBeginAtHours(value) {
@@ -552,19 +582,11 @@ exports.check = async function(param) {
       const [handle] = args;
       const info = handles.get(handle);
       if (!info) return false;
-      try {
-        await bridge("tabs.remove", info.tabId);
-      } catch (error) {
-        console.warn(error);
-      }
-      if (info.windowId) {
-        try {
-          await bridge("windows.remove", info.windowId);
-        } catch (error) {
-          console.warn(error);
-        }
-      }
       handles.delete(handle);
+      await closeTarget("tabs.remove", info.tabId, "tab");
+      if (info.windowId) {
+        await closeTarget("windows.remove", info.windowId, "window");
+      }
       return true;
     }
     if (method === "frame.eval") {
@@ -741,8 +763,16 @@ exports.check = async function(param) {
     return task;
   }
 
+  function markTaskCheckFailure(task, now, error) {
+    task.check_error_at = now;
+    task.failure_at = now;
+    task.result = normalizeResult(task, `在线检测失败: ${String(error)}`);
+    return task;
+  }
+
   function markTaskOnlineState(task, online, now) {
     task.online_at = online ? now : -now;
+    if (online) task.check_error_at = 0;
     return task;
   }
 
@@ -763,9 +793,51 @@ exports.check = async function(param) {
       markTaskOnlineState(task, online, now);
       return { online: !!online, error: null };
     } catch (error) {
-      markTaskOnlineState(task, false, now);
-      return { online: false, error };
+      markTaskCheckFailure(task, now, error);
+      return { online: false, error, checkFailed: true };
     }
+  }
+
+  function schedulerDelayCandidate(candidates, value) {
+    const dueAt = Number(value || 0);
+    if (Number.isFinite(dueAt) && dueAt > 0) candidates.push(dueAt);
+  }
+
+  function getNextSchedulerDelaySeconds(config, tasks, now) {
+    const loopFreqSeconds = Math.max(
+      MIN_SCHEDULER_DELAY_SECONDS,
+      Number(config && config.loop_freq) || DEFAULT_CONFIG.loop_freq
+    );
+    const candidates = [now + loopFreqSeconds * 1000];
+    const today = getDayStartTimestamp(now, config && config.begin_at);
+    const nextDay = today + 86400000;
+    const retryMs = Math.max(0, Number(config && config.retry_freq) || 0) * 1000;
+    for (const task of Object.values(tasks || {})) {
+      if (!task || !task.enable) continue;
+      if (isTaskDoneForCurrentWindow(task, now, today)) {
+        schedulerDelayCandidate(candidates, nextDay);
+        continue;
+      }
+      if (!task.online_at) {
+        if (task.check_error_at && (task.failure_at || 0) > (task.success_at || 0)) {
+          schedulerDelayCandidate(candidates, Number(task.failure_at || task.check_error_at || 0) + retryMs);
+        } else {
+          schedulerDelayCandidate(candidates, now);
+        }
+      } else {
+        schedulerDelayCandidate(candidates, Math.abs(task.online_at) + getOnlineRecheckMs(task));
+      }
+      if ((task.failure_at || 0) > (task.success_at || 0)) {
+        schedulerDelayCandidate(candidates, Number(task.failure_at || 0) + retryMs);
+      }
+      const freq = Number(task.freq || 0);
+      if (freq > 0 && freq < 86400000 && task.success_at) {
+        schedulerDelayCandidate(candidates, Number(task.success_at || 0) + freq);
+      }
+    }
+    const nextAt = Math.min(...candidates.filter((value) => Number.isFinite(value)));
+    const delaySeconds = Math.ceil((nextAt - now) / 1000);
+    return Math.max(MIN_SCHEDULER_DELAY_SECONDS, Math.min(loopFreqSeconds, delaySeconds || loopFreqSeconds));
   }
 
   async function updateBadge(tasks) {
@@ -822,6 +894,7 @@ exports.check = async function(param) {
       _params: prev._params || {},
       enable: prev.enable,
       online_at: prev.online_at,
+      check_error_at: prev.check_error_at,
       run_at: prev.run_at,
       success_at: prev.success_at,
       failure_at: prev.failure_at,
@@ -829,6 +902,48 @@ exports.check = async function(param) {
       cnt: prev.cnt,
       result: prev.result,
     });
+  }
+
+  function mergeTaskForPersist(live, staged, options) {
+    const keepStaticFromStaged = !!(options && options.keepStaticFromStaged);
+    const base = keepStaticFromStaged ? Object.assign({}, live || {}, staged || {}) : Object.assign({}, staged || {}, live || {});
+    return Object.assign(base, {
+      enable: live && Object.prototype.hasOwnProperty.call(live, "enable") ? live.enable : base.enable,
+      _params: live && live._params ? live._params : base._params,
+      online_at: staged && Object.prototype.hasOwnProperty.call(staged, "online_at") ? staged.online_at : base.online_at,
+      check_error_at:
+        staged && Object.prototype.hasOwnProperty.call(staged, "check_error_at")
+          ? staged.check_error_at
+          : base.check_error_at,
+      run_at: staged && Object.prototype.hasOwnProperty.call(staged, "run_at") ? staged.run_at : base.run_at,
+      success_at: staged && Object.prototype.hasOwnProperty.call(staged, "success_at") ? staged.success_at : base.success_at,
+      failure_at: staged && Object.prototype.hasOwnProperty.call(staged, "failure_at") ? staged.failure_at : base.failure_at,
+      ok: staged && Object.prototype.hasOwnProperty.call(staged, "ok") ? staged.ok : base.ok,
+      cnt: staged && Object.prototype.hasOwnProperty.call(staged, "cnt") ? staged.cnt : base.cnt,
+      result: staged && Object.prototype.hasOwnProperty.call(staged, "result") ? staged.result : base.result,
+      failure_notify_at:
+        staged && Object.prototype.hasOwnProperty.call(staged, "failure_notify_at")
+          ? staged.failure_notify_at
+          : base.failure_notify_at,
+      offline_notify_at:
+        staged && Object.prototype.hasOwnProperty.call(staged, "offline_notify_at")
+          ? staged.offline_notify_at
+          : base.offline_notify_at,
+    });
+  }
+
+  function mergeSchedulerTasks(liveTasks, stagedTasks, updated) {
+    const merged = Object.assign({}, liveTasks);
+    const updatedKeys = new Set((updated || []).map((task) => taskKey(task)));
+    for (const key of Object.keys(stagedTasks || {})) {
+      const staged = stagedTasks[key];
+      const live = liveTasks[key];
+      if (!live) continue;
+      merged[key] = mergeTaskForPersist(live, staged, {
+        keepStaticFromStaged: updatedKeys.has(key),
+      });
+    }
+    return merged;
   }
 
   async function upgradeTasksIfNeeded(config, tasks, now) {
@@ -890,7 +1005,9 @@ exports.check = async function(param) {
     if (!task) throw new Error("task not found");
     const now = Date.now();
     const checked = await checkTaskOnline(config, task, now);
-    if (!checked.online) {
+    if (checked.checkFailed) {
+      await notifyTaskFailure(config, task, now);
+    } else if (!checked.online) {
       await notifyTaskOffline(config, task, now);
     }
     tasks[key] = task;
@@ -920,27 +1037,35 @@ exports.check = async function(param) {
       for (const key of Object.keys(tasks)) {
         const task = tasks[key];
         if (!task.enable) continue;
-        const done = isTaskDoneForCurrentWindow(task, now, today);
+        const taskNow = Date.now();
+        const done = isTaskDoneForCurrentWindow(task, taskNow, today);
         if (done) {
           tasks[key] = task;
           continue;
         }
+        const checkRetryAt = Number(task.failure_at || task.check_error_at || 0) + config.retry_freq * 1000;
+        if (!task.online_at && task.check_error_at && checkRetryAt > taskNow) {
+          tasks[key] = task;
+          continue;
+        }
         const shouldCheck =
-          !task.online_at || Math.abs(task.online_at) + getOnlineRecheckMs(task) < now;
+          !task.online_at || Math.abs(task.online_at) + getOnlineRecheckMs(task) < taskNow;
         if (shouldCheck) {
           await setConfig({ last_refresh_stage: `check:${key}` });
-          const checked = await checkTaskOnline(config, task, now);
+          const checked = await checkTaskOnline(config, task, taskNow);
           if (!checked.online) {
-            await notifyTaskOffline(config, task, now);
+            if (checked.checkFailed) await notifyTaskFailure(config, task, taskNow);
+            else await notifyTaskOffline(config, task, taskNow);
             tasks[key] = task;
             continue;
           }
         }
-        const due = isTaskDueForCurrentWindow(task, now, today);
-        const retryable = task.failure_at + config.retry_freq * 1000 <= now;
+        const runNow = Date.now();
+        const due = isTaskDueForCurrentWindow(task, runNow, today);
+        const retryable = task.failure_at + config.retry_freq * 1000 <= runNow;
         if (due && retryable) {
           await setConfig({ last_refresh_stage: `run:${key}` });
-          markTaskRunStart(task, now);
+          markTaskRunStart(task, runNow);
           task._timeout = getTaskTimeout(config);
           try {
             const result = await withTimeout(
@@ -948,13 +1073,13 @@ exports.check = async function(param) {
               task._timeout,
               `task run timeout>${task._timeout}ms`
             );
-            markTaskRunSuccess(task, now, result);
+            markTaskRunSuccess(task, Date.now(), result);
           } catch (error) {
-            markTaskRunFailure(task, now, error);
+            markTaskRunFailure(task, Date.now(), error);
           }
         }
         if ((task.failure_at || 0) > (task.success_at || 0)) {
-          await notifyTaskFailure(config, task, now);
+          await notifyTaskFailure(config, task, Date.now());
         }
         tasks[key] = task;
       }
@@ -966,16 +1091,20 @@ exports.check = async function(param) {
           chrome.runtime.getURL("options.html")
         );
       }
-      await setTasksMap(tasks);
-      await updateBadge(tasks);
-      lastTickAt = now;
+      const latestTasks = await getTasksMap();
+      const mergedTasks = mergeSchedulerTasks(latestTasks, tasks, updated);
+      await setTasksMap(mergedTasks);
+      await updateBadge(mergedTasks);
+      const doneAt = Date.now();
+      const nextDelaySeconds = getNextSchedulerDelaySeconds(config, mergedTasks, doneAt);
+      lastTickAt = doneAt;
       await setConfig({
-        last_refresh_done_at: now,
+        last_refresh_done_at: doneAt,
         last_refresh_done_reason: triggerReason,
         last_refresh_stage: "done",
         last_refresh_error: "",
       });
-      return true;
+      return { ok: true, next_delay_seconds: nextDelaySeconds };
     } catch (error) {
       await setConfig({
         last_refresh_stage: "error",

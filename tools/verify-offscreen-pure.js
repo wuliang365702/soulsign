@@ -37,9 +37,19 @@ function extractFunction(name) {
 function loadFunctions(names) {
   const context = {
     RECORDED_COMPLETION_TEXT: "录制完成",
+    DEFAULT_CONFIG: {
+      loop_freq: 3600,
+      retry_freq: 600,
+      begin_at: 0,
+    },
+    ONLINE_STATUS_RECHECK_MS: 900 * 1000,
+    MIN_SCHEDULER_DELAY_SECONDS: 60,
     URL,
     Set,
     JSON,
+    Number,
+    Math,
+    Object,
   };
   vm.createContext(context);
   for (const name of names) {
@@ -69,11 +79,17 @@ function run() {
     "markTaskRunStart",
     "markTaskRunSuccess",
     "markTaskRunFailure",
+    "markTaskCheckFailure",
     "markTaskOnlineState",
     "parseTask",
     "normalizeResult",
     "isTaskDoneForCurrentWindow",
     "isTaskDueForCurrentWindow",
+    "normalizeBeginAtHours",
+    "getDayStartTimestamp",
+    "getOnlineRecheckMs",
+    "schedulerDelayCandidate",
+    "getNextSchedulerDelaySeconds",
   ];
   const fns = loadFunctions(names);
 
@@ -138,8 +154,17 @@ exports.run = async function () {
   assertEqual(runTask.failure_at, helperNow, "markTaskRunFailure should update failure_at");
   assertEqual(runTask.result.detail[0].errno, 1, "markTaskRunFailure should normalize failure result");
 
+  fns.markTaskCheckFailure(runTask, helperNow + 1000, "timeout");
+  assertEqual(runTask.check_error_at, helperNow + 1000, "markTaskCheckFailure should record check_error_at");
+  assertEqual(runTask.failure_at, helperNow + 1000, "markTaskCheckFailure should update failure_at");
+  assert(
+    runTask.result.summary.includes("在线检测失败"),
+    "markTaskCheckFailure should distinguish check errors from offline state"
+  );
+
   fns.markTaskOnlineState(runTask, true, helperNow);
   assertEqual(runTask.online_at, helperNow, "markTaskOnlineState should store positive time for online");
+  assertEqual(runTask.check_error_at, 0, "markTaskOnlineState should clear check_error_at after online success");
   fns.markTaskOnlineState(runTask, false, helperNow);
   assertEqual(runTask.online_at, -helperNow, "markTaskOnlineState should store negative time for offline");
 
@@ -162,6 +187,36 @@ exports.run = async function () {
     fns.isTaskDueForCurrentWindow({ success_at: dayNow - 61 * 1000, freq: 60 * 1000 }, dayNow, today),
     "interval task should become due after freq window"
   );
+
+  const schedulerDelay = fns.getNextSchedulerDelaySeconds(
+    { loop_freq: 3600, retry_freq: 600, begin_at: 0 },
+    {
+      offline: {
+        enable: true,
+        online_at: -dayNow,
+        expire: 300000,
+        success_at: 0,
+        failure_at: 0,
+      },
+    },
+    dayNow
+  );
+  assertEqual(schedulerDelay, 300, "scheduler should wake for @expire before the global loop frequency");
+
+  const checkFailureDelay = fns.getNextSchedulerDelaySeconds(
+    { loop_freq: 3600, retry_freq: 600, begin_at: 0 },
+    {
+      checkFailure: {
+        enable: true,
+        online_at: 0,
+        check_error_at: dayNow,
+        failure_at: dayNow,
+        success_at: 0,
+      },
+    },
+    dayNow
+  );
+  assertEqual(checkFailureDelay, 600, "scheduler should retry check failures by retry_freq");
 
   const recordedScript = fns.wrapRecordedScript("https://www.ibmnb.com/qd.php?from=test", "", ['await fb.click(".btna")']);
   assert(

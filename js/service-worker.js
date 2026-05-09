@@ -117,13 +117,23 @@ async function scheduleLoopAlarm(loopFreqSeconds) {
   await chrome.alarms.create(HOURLY_ALARM_NAME, { when: Date.now() + delaySeconds * 1000 });
 }
 
+async function scheduleNextLoopFromRefreshResult(result) {
+  const nextDelaySeconds = Number(result && result.next_delay_seconds);
+  if (Number.isFinite(nextDelaySeconds) && nextDelaySeconds > 0) {
+    await scheduleLoopAlarm(nextDelaySeconds);
+    return;
+  }
+  const loopFreqSeconds = await getLoopFrequencySeconds();
+  await scheduleLoopAlarm(loopFreqSeconds);
+}
+
 async function requestRefresh(reason) {
   const now = Date.now();
   if (now - lastWakeRefreshAt < 30000) return false;
   try {
-    await forward("task/refresh", { reason });
+    const result = await forward("task/refresh", { reason });
     lastWakeRefreshAt = now;
-    return true;
+    return result || true;
   } catch (error) {
     console.error("soulsign refresh failed", reason, error);
     return false;
@@ -270,10 +280,9 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== STARTUP_ALARM_NAME && alarm.name !== HOURLY_ALARM_NAME) return;
   try {
-    await requestRefresh(alarm.name);
+    const result = await requestRefresh(alarm.name);
     if (alarm.name === HOURLY_ALARM_NAME) {
-      const loopFreqSeconds = await getLoopFrequencySeconds();
-      await scheduleLoopAlarm(loopFreqSeconds);
+      await scheduleNextLoopFromRefreshResult(result);
     }
   } catch (error) {
     console.error("soulsign tick failed", error);
